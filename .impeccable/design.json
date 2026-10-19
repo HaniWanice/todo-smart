@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-19T21:00:00Z",
+  "title": "Design System: ToDo Smart",
+  "extensions": {
+    "colorMeta": {
+      "paper": { "role": "neutral", "displayName": "Warm Paper" },
+      "graphite": { "role": "neutral", "displayName": "Graphite" },
+      "muted": { "role": "neutral", "displayName": "Pencil Grey" },
+      "accent": { "role": "primary", "displayName": "Ink Blue" },
+      "doing": { "role": "secondary", "displayName": "Amber In-Progress" },
+      "done": { "role": "secondary", "displayName": "Leaf Done" },
+      "star": { "role": "secondary", "displayName": "Star Gold" },
+      "night": { "role": "neutral", "displayName": "Warm Charcoal" }
+    },
+    "shadows": [
+      { "name": "rest", "value": "0 1px 2px rgba(15,15,15,.04), 0 2px 8px rgba(15,15,15,.04)", "purpose": "Composer at rest." },
+      { "name": "lifted", "value": "0 2px 4px rgba(15,15,15,.05), 0 12px 32px rgba(15,15,15,.10)", "purpose": "Focused composer, menus, format bar, toasts." }
+    ],
+    "motion": [
+      { "name": "ease", "value": "cubic-bezier(.2, .8, .2, 1)", "purpose": "All state transitions, 150–250ms." },
+      { "name": "hover-intent", "value": "180ms delay", "purpose": "Description preview bloom on task hover." }
+    ],
+    "breakpoints": [
+      { "name": "compact", "value": "760px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Saves the captured task.",
+      "html": "<button class=\"ds-send\">Ajouter <kbd>Maj ↵</kbd></button>",
+      "css": ".ds-send { display:inline-flex; align-items:center; gap:10px; height:38px; padding:0 14px 0 16px; border:0; border-radius:9px; background:#1f6fc5; color:#fff; font:550 14.5px ui-sans-serif,system-ui,sans-serif; cursor:pointer; transition:filter .15s; } .ds-send kbd { padding:3px 6px; border-radius:5px; background:rgba(255,255,255,.2); font:500 11px ui-sans-serif,system-ui,sans-serif; } .ds-send:hover { filter:brightness(.93); } .ds-send:focus-visible { outline:2px solid #1f6fc5; outline-offset:2px; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip-filter",
+      "description": "Multi-select status filter.",
+      "html": "<button class=\"ds-chip\">À faire</button> <button class=\"ds-chip\" aria-pressed=\"true\">En cours</button>",
+      "css": ".ds-chip { height:36px; padding:0 14px; border:1px solid rgba(55,53,47,.16); border-radius:999px; background:none; color:#5f5e5b; font:14px ui-sans-serif,system-ui,sans-serif; cursor:pointer; } .ds-chip:hover { background:rgba(55,53,47,.045); } .ds-chip[aria-pressed=\"true\"] { background:rgba(31,111,197,.11); border-color:transparent; color:#1f6fc5; }"
+    },
+    {
+      "name": "Bottom Tab",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Tab in the fixed bottom bar, active state in its own label colour.",
+      "html": "<button class=\"ds-tab\"><span class=\"ds-dot\"></span>Business<span class=\"ds-n\">2</span></button> <button class=\"ds-tab ds-on\"><span class=\"ds-dot\"></span>Trading<span class=\"ds-n\">4</span></button>",
+      "css": ".ds-tab { display:inline-flex; align-items:center; gap:10px; height:48px; padding:0 18px 0 14px; border:0; border-radius:12px; background:none; color:#5f5e5b; font:500 15px ui-sans-serif,system-ui,sans-serif; cursor:pointer; --tc:#448361; --tc-bg:#edf3ec; } .ds-tab:hover { background:rgba(55,53,47,.045); } .ds-on { --tc:#337ea9; --tc-bg:#e7f3f8; background:var(--tc-bg); color:var(--tc); } .ds-dot { width:10px; height:10px; border-radius:3px; background:var(--tc); } .ds-n { min-width:22px; height:22px; padding:0 6px; border-radius:6px; background:rgba(55,53,47,.08); font-size:12px; font-weight:600; line-height:22px; text-align:center; }"
+    },
+    {
+      "name": "Task Row",
+      "kind": "custom",
+      "refersTo": "task-row",
+      "description": "Done ring, dashed in-progress ring, title and full creation date.",
+      "html": "<div class=\"ds-row\"><span class=\"ds-ring\"></span><span class=\"ds-ring ds-dash\"></span><div><div class=\"ds-title\">Backtest scalping BTC</div><div class=\"ds-meta\">Créée le 19 oct. 2026 à 18:34</div></div></div>",
+      "css": ".ds-row { display:flex; gap:12px; align-items:flex-start; padding:16px; border-radius:12px; font-family:ui-sans-serif,system-ui,sans-serif; color:#37352f; } .ds-row:hover { background:rgba(55,53,47,.045); } .ds-ring { width:18px; height:18px; margin-top:3px; border:1.75px solid #73716c; border-radius:50%; flex:none; } .ds-dash { border-style:dashed; } .ds-title { font-size:16.5px; line-height:1.55; } .ds-meta { margin-top:6px; font-size:13px; color:#73716c; font-variant-numeric:tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Notebook",
+    "overview": "A warm sheet of paper that is always open at the right page. The surface stays almost silent: warm off-white ground, graphite ink, hairline separators, and generous air between items. The composer is the anchor of the page; everything else waits underneath it. Colour does work, never decoration: each tab owns one of Notion's soft label colours and carries it everywhere it appears.",
+    "keyCharacteristics": [
+      "Warm paper ground, never pure white behind content.",
+      "Big targets: 48px tabs, 30px state buttons, 16px row padding.",
+      "Structure from hairlines and space, not boxes.",
+      "Navigation sits under the thumb in a fixed bottom bar.",
+      "Actions appear on hover on desktop and are always visible on touch."
+    ],
+    "rules": [
+      { "name": "The Label Carries Its Colour Rule", "body": "A tab's colour follows it everywhere: dot in the bar, active tab background, view tile, task chip, drop highlight. No other element borrows a tab colour.", "section": "colors" },
+      { "name": "The One Accent Rule", "body": "Blue is only for the primary action, selection and focus. State uses amber and green, never blue.", "section": "colors" },
+      { "name": "The Lift On Intent Rule", "body": "Shadows grow only when something takes focus or floats above the page. Rows never get shadows; hover is a tonal wash.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep tasks airy: 16px row padding and at least 4px between rows.",
+      "Do give every action a visible button; keyboard shortcuts come in addition, never instead.",
+      "Do use a tab's own colour pair for anything that represents that tab.",
+      "Do theme both modes through the CSS variables in :root and :root[data-theme=\"dark\"]."
+    ],
+    "donts": [
+      "Don't use typed syntax as the way to format text (no hashtags, no Markdown typing required); formatting comes from buttons, shortcuts or the selection bar.",
+      "Don't use pure white (#fff) as the page ground or pure black in dark mode.",
+      "Don't add cards, borders or density around rows; the owner asked for space.",
+      "Don't use Faint Grey (#b4b2ad) for text or for always-visible controls."
+    ]
+  }
+}

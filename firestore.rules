@@ -3,15 +3,28 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // A space is reachable only by whoever knows its long random id (the shared link).
     // Spaces themselves cannot be listed, so ids cannot be discovered.
+    function inSpace(space) { return space.size() >= 20; }
+
     match /spaces/{space}/items/{item} {
-      allow read: if space.size() >= 20;
-      allow delete: if space.size() >= 20;
-      allow create, update: if space.size() >= 20
-        && request.resource.data.keys().hasOnly(['id', 'title', 'desc', 'cat', 'auto', 'createdAt', 'updatedAt', 'doneAt'])
+      allow read, delete: if inSpace(space);
+      // Legacy v1 items (cat/auto) are still readable and deletable, rewritten on migration.
+      allow create, update: if inSpace(space)
+        && request.resource.data.keys().hasOnly(['id', 'title', 'desc', 'tab', 'status', 'fav', 'pinned', 'createdAt', 'updatedAt', 'doneAt'])
         && request.resource.data.id == item
         && request.resource.data.title is string && request.resource.data.title.size() <= 2000
         && request.resource.data.desc is string && request.resource.data.desc.size() <= 50000
+        && request.resource.data.tab is string
+        && request.resource.data.status in ['todo', 'doing', 'done']
         && request.resource.data.createdAt is int;
+    }
+
+    match /spaces/{space}/tabs/{tab} {
+      allow read, delete: if inSpace(space);
+      allow create, update: if inSpace(space)
+        && request.resource.data.keys().hasOnly(['id', 'name', 'order', 'color', 'createdAt', 'updatedAt'])
+        && request.resource.data.id == tab
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60
+        && request.resource.data.order is number;
     }
   }
 }

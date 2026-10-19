@@ -1,27 +1,33 @@
-// Storage backends share one interface:
-//   start(onItems)  — calls onItems(itemsArray) now and on every change (local or remote)
-//   put(item) / del(id)
-//   status          — 'local' | 'synced' | 'offline', with onStatus(cb)
+// Storage backends share one interface over two collections, 'items' and 'tabs':
+//   start(onChange)  — onChange(coll, docsArray, { fromCache }) now and on every change
+//   put(coll, doc) / del(coll, id)
+//   status           — 'local' | 'synced' | 'offline', with onStatus(cb)
+
+export const COLLECTIONS = ['items', 'tabs'];
 
 export function localBackend(space) {
-  const key = `todosmart:${space}`;
-  let items = new Map();
+  const key = (coll) => (coll === 'items' ? `todosmart:${space}` : `todosmart:${space}:${coll}`);
+  const data = {};
   let notify = () => {};
-  const load = () => {
-    try { items = new Map(JSON.parse(localStorage.getItem(key) ?? '[]').map((it) => [it.id, it])); } catch { items = new Map(); }
+  const load = (coll) => {
+    try { data[coll] = new Map(JSON.parse(localStorage.getItem(key(coll)) ?? '[]').map((d) => [d.id, d])); } catch { data[coll] = new Map(); }
   };
-  const save = () => {
-    try { localStorage.setItem(key, JSON.stringify([...items.values()])); } catch {}
-    notify([...items.values()]);
+  const emit = (coll) => notify(coll, [...data[coll].values()], { fromCache: false });
+  const save = (coll) => {
+    try { localStorage.setItem(key(coll), JSON.stringify([...data[coll].values()])); } catch {}
+    emit(coll);
   };
   // Other tabs of the same browser stay in sync.
-  addEventListener('storage', (e) => { if (e.key === key) { load(); notify([...items.values()]); } });
+  addEventListener('storage', (e) => {
+    const coll = COLLECTIONS.find((c) => key(c) === e.key);
+    if (coll) { load(coll); emit(coll); }
+  });
   return {
     status: 'local',
     onStatus() {},
-    start(cb) { notify = cb; load(); cb([...items.values()]); },
-    put(item) { items.set(item.id, item); save(); },
-    del(id) { items.delete(id); save(); },
+    start(cb) { notify = cb; for (const c of COLLECTIONS) { load(c); emit(c); } },
+    put(coll, doc) { data[coll].set(doc.id, doc); save(coll); },
+    del(coll, id) { data[coll].delete(id); save(coll); },
   };
 }
 
@@ -35,20 +41,27 @@ export async function firestoreBackend(space, config) {
   const db = fs.initializeFirestore(app, {
     localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }),
   });
-  const col = fs.collection(db, 'spaces', space, 'items');
+  const col = (coll) => fs.collection(db, 'spaces', space, coll);
   const statusListeners = [];
+  const setStatus = (s) => {
+    if (s === backend.status) return;
+    backend.status = s;
+    statusListeners.forEach((f) => f(s));
+  };
   const backend = {
     status: 'offline',
     onStatus(cb) { statusListeners.push(cb); },
     start(cb) {
-      fs.onSnapshot(col, { includeMetadataChanges: true }, (snap) => {
-        cb(snap.docs.map((d) => d.data()));
-        const s = snap.metadata.fromCache || snap.metadata.hasPendingWrites ? 'offline' : 'synced';
-        if (s !== backend.status) { backend.status = s; statusListeners.forEach((f) => f(s)); }
-      }, (err) => console.error('[todosmart] sync error', err));
+      for (const coll of COLLECTIONS) {
+        fs.onSnapshot(col(coll), { includeMetadataChanges: true }, (snap) => {
+          const { fromCache, hasPendingWrites } = snap.metadata;
+          cb(coll, snap.docs.map((d) => d.data()), { fromCache });
+          if (coll === 'items') setStatus(fromCache || hasPendingWrites ? 'offline' : 'synced');
+        }, (err) => console.error('[todosmart] sync error', coll, err));
+      }
     },
-    put(item) { fs.setDoc(fs.doc(col, item.id), item).catch((e) => console.error('[todosmart] write', e)); },
-    del(id) { fs.deleteDoc(fs.doc(col, id)).catch((e) => console.error('[todosmart] delete', e)); },
+    put(coll, doc) { fs.setDoc(fs.doc(col(coll), doc.id), doc).catch((e) => console.error('[todosmart] write', e)); },
+    del(coll, id) { fs.deleteDoc(fs.doc(col(coll), id)).catch((e) => console.error('[todosmart] delete', e)); },
   };
   return backend;
 }

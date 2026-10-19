@@ -2,41 +2,79 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>ToDo Smart</title>
-  <meta name="theme-color" content="#fbfaf8" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#191918" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f8f7f4">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <script>
+    try {
+      document.documentElement.dataset.theme = localStorage.getItem('ts:theme')
+        || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch (e) { document.documentElement.dataset.theme = 'light'; }
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
-    <header class="top">
-      <h1>ToDo Smart</h1>
-      <div class="tools">
-        <span id="sync" class="sync"></span>
-        <button id="share" class="ghost">Partager</button>
+  <header class="top">
+    <span class="brand"><img src="icon.svg" alt="" width="22" height="22">ToDo Smart</span>
+    <div class="top-tools">
+      <label class="search">
+        <span class="visually-hidden">Rechercher</span>
+        <input id="search" type="search" placeholder="Rechercher" autocomplete="off">
+      </label>
+      <span id="sync" class="sync" role="status"></span>
+      <button id="share" class="icon-btn" type="button" aria-label="Copier le lien de partage" title="Copier le lien de partage"></button>
+      <button id="theme" class="icon-btn" type="button"></button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="composer" aria-label="Nouvelle tâche">
+      <div id="cap" class="rich composer-input" role="textbox" aria-multiline="true" aria-label="Nouvelle tâche ou idée"
+           data-placeholder="Une idée, une tâche… (Entrée pour aller à la ligne)"></div>
+      <div class="composer-bar">
+        <div class="fmt-group" role="toolbar" aria-label="Mise en forme">
+          <button type="button" class="fmt-btn" data-fmt="bold" title="Gras (Ctrl+B)" aria-label="Gras"></button>
+          <button type="button" class="fmt-btn" data-fmt="italic" title="Italique (Ctrl+I)" aria-label="Italique"></button>
+          <button type="button" class="fmt-btn" data-fmt="bullets" title="Liste à puces (Ctrl+Maj+8)" aria-label="Liste à puces"></button>
+          <button type="button" class="fmt-btn" data-fmt="checks" title="Checklist (Ctrl+Maj+9)" aria-label="Checklist"></button>
+        </div>
+        <span id="dest" class="dest"></span>
+        <button id="send" type="button" class="send" title="Ajouter (Maj+Entrée)">
+          <span class="send-label">Ajouter</span><kbd>Maj ↵</kbd>
+        </button>
       </div>
-    </header>
+    </section>
 
-    <div class="capture">
-      <textarea id="cap" rows="1" placeholder="Note une idée, une tâche…" autocomplete="off" spellcheck="true"></textarea>
-      <span id="route" class="route"></span>
-    </div>
-    <p class="hint"><kbd>Entrée</kbd> ajoute · <kbd>Maj+Entrée</kbd> détaille · <kbd>#onglet</kbd> range · <kbd>Ctrl+F</kbd> cherche · <kbd>Alt+1…9</kbd> onglets</p>
-
-    <div class="bar">
-      <nav id="tabs" class="tabs"></nav>
-      <input id="search" class="search" type="search" placeholder="Rechercher" aria-label="Rechercher">
-    </div>
-
-    <ul id="list" class="list"></ul>
-    <p id="empty" class="empty" hidden></p>
+    <section class="view" aria-labelledby="viewTitle">
+      <div class="view-head">
+        <div class="view-title-row">
+          <span id="viewIcon" class="view-icon" aria-hidden="true"></span>
+          <h1 id="viewTitle" class="view-title"></h1>
+          <button id="viewMenu" type="button" class="icon-btn" aria-label="Options de l'onglet" hidden></button>
+        </div>
+        <p id="viewMeta" class="view-meta"></p>
+        <div id="filters" class="filters" role="group" aria-label="Filtres"></div>
+      </div>
+      <ul id="list" class="tasks"></ul>
+      <div id="empty" class="empty" hidden></div>
+    </section>
   </main>
 
-  <div id="menu" class="menu" hidden></div>
-  <div id="toast" class="toast" hidden></div>
+  <nav class="tabbar" aria-label="Onglets">
+    <div id="tabs" class="tabs"></div>
+  </nav>
+
+  <div id="fmtbar" class="fmtbar" role="toolbar" aria-label="Mise en forme de la sélection" hidden>
+    <button type="button" class="fmt-btn" data-fmt="bold" aria-label="Gras"></button>
+    <button type="button" class="fmt-btn" data-fmt="italic" aria-label="Italique"></button>
+    <span class="fmtbar-sep"></span>
+    <button type="button" class="fmt-btn wide" data-fmt="bullets"><span>Liste</span></button>
+    <button type="button" class="fmt-btn wide" data-fmt="checks"><span>Checklist</span></button>
+  </div>
+  <div id="menu" class="menu" role="menu" hidden></div>
+  <div id="toast" class="toast" role="status" hidden></div>
 
   <script type="module" src="src/app.js"></script>
 </body>

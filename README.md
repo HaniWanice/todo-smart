@@ -1,47 +1,43 @@
 # ToDo Smart
 
-Capture ultra-rapide de tâches et d'idées. Une page statique, sans build, synchronisée par Firestore.
+Capture ultra-rapide de tâches et d'idées, synchronisée entre appareils. Une page statique, sans build.
+En ligne : https://haniwanice.github.io/todo-smart/
 
 ## Utiliser
 
-- Tape n'importe où → le texte va dans le champ. **Entrée** ajoute.
-- `#onglet` dans le texte → rangé dans cet onglet (créé si besoin).
-- Sans tag : l'onglet ouvert, sinon un classement **appris sur tes propres tâches** (✦), sinon Inbox. La destination s'affiche avant de valider ; clic sur l'onglet d'une tâche pour corriger, l'app apprend.
-- **Maj+Entrée** : la suite devient la description. Markdown : `**gras**`, `*italique*`, `` `code` ``, `- puce`, `[ ] checklist` (cochable), liens.
-- Cocher = archivé (date et heure exactes). **Ctrl+Z** annule. Archives → Restaurer / Supprimer.
-- **Ctrl+F** recherche, **Alt+1…9** onglets, **Échap** vide le champ.
+- Tape n'importe où : le texte va dans le champ du haut. **Entrée** va à la ligne, **Maj+Entrée** (ou le bouton Ajouter) crée la tâche. La 1re ligne est le titre, la suite la description.
+- La tâche va dans l'onglet ouvert (le premier onglet depuis Tout ou Favoris).
+- Onglets en bas : **+ Nouvel onglet** crée et renomme. Double-clic ou clic sur le grand titre pour renommer, clic droit ou ⋯ pour la couleur et la suppression. Glisser un onglet pour le déplacer.
+- Glisser une tâche (poignée à gauche) sur un onglet pour la déplacer, sur Favoris pour l'étoiler.
+- Chaque tâche : cercle = terminée, cercle pointillé = en cours, étoile = favori, épingle = toujours en haut.
+- Survoler une tâche montre sa description (3 lignes), cliquer l'ouvre en entier pour l'éditer.
+- Mise en forme sans syntaxe : boutons B / I / liste / checklist, ou sélectionner du texte, ou **Ctrl+B**, **Ctrl+I**, **Ctrl+Maj+8** (liste), **Ctrl+Maj+9** (checklist).
+- Filtres par onglet, combinables : Favoris, À faire, En cours, Terminés. Sans filtre : tout sauf les terminées.
+- **Ctrl+F** recherche, **Alt+1…9** onglets, **Ctrl+Z** annule la dernière action, bouton lune/soleil pour le thème.
 - Le lien de la page (`…/#<id>`) **est** l'espace : qui l'a peut lire et modifier.
 
 ## Développer
 
 ```sh
-npm run dev    # http://127.0.0.1:5173
-npm test       # logique (parsing, markdown, classement)
+npm run dev    # http://127.0.0.1:5173  (ajouter ?local pour ignorer Firestore)
+npm test       # logique pure (rendu, filtres, tri, migration)
 ```
 
-Sans configuration Firebase, l'app tourne en local (ce navigateur seulement, onglets synchronisés entre eux).
+Déployer = pousser sur `main` (GitHub Pages).
 
-## Activer la synchronisation (gratuit, ~5 min)
+## Synchronisation
 
-1. https://console.firebase.google.com → **Ajouter un projet** (Analytics inutile).
-2. **Build → Firestore Database → Créer** (mode production, région `europe-west`).
-3. Onglet **Règles** : coller le contenu de `firestore.rules`, **Publier**.
-4. **Paramètres du projet → Vos applications → Web (`</>`)** : enregistrer l'app, copier l'objet `firebaseConfig`.
-5. Le coller dans `src/config.js` : `export const firebaseConfig = { apiKey: "...", ... };`
-
-La clé `apiKey` Firebase n'est pas un secret : elle identifie le projet, la sécurité vient des règles.
-Les tâches créées en mode local sont envoyées une fois en ligne au premier lancement synchronisé.
-
-## Héberger sur GitHub Pages
-
-Pousser le dossier sur un dépôt GitHub, puis **Settings → Pages → Deploy from branch → `main` / root**.
-Dans Firebase, **Authentication → Paramètres → Domaines autorisés** n'est pas requis (pas d'auth).
+Firestore, projet Firebase `todo-1d5e9` (offre gratuite, europe-west9). Collections `spaces/<id>/items` et `spaces/<id>/tabs`.
+Après toute modification de `firestore.rules`, la coller dans la console Firebase (Firestore → Règles → Publier).
+La clé `apiKey` Firebase n'est pas un secret : la sécurité vient des règles.
 
 ## Architecture
 
 | Fichier | Rôle |
 |---|---|
-| `src/parse.js` | capture (`#tag`, titre/description), rendu Markdown, échappement HTML |
-| `src/classify.js` | Bayes naïf local avec classe « aucun » : il s'abstient plutôt que de mal ranger |
-| `src/backends.js` | `localBackend` / `firestoreBackend`, même interface (`start`, `put`, `del`) |
-| `src/app.js` | état, rendu par clés (n'écrase jamais un champ en cours d'édition), raccourcis |
+| `src/model.js` | règles pures : filtres, tri (épinglées, puis récentes), découpage titre/description, migration v1 |
+| `src/parse.js` | Markdown → HTML (inline et blocs), échappement |
+| `src/editor.js` | édition riche contenteditable ↔ Markdown, mise en forme, checklists |
+| `src/backends.js` | `localBackend` / `firestoreBackend`, même interface sur `items` et `tabs` |
+| `src/app.js` | état, rendu par clés (n'écrase jamais un champ en cours d'édition), interactions |
+| `src/icons.js` | jeu d'icônes SVG à trait unique |

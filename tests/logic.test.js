@@ -1,20 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCapture, resolveCat, renderInline, renderBlock, toggleCheckLine } from '../src/parse.js';
-import { train, predict } from '../src/classify.js';
-
-test('capture: tag is extracted, title cleaned, extra lines become description', () => {
-  assert.deepEqual(parseCapture('Tester le stop-loss #trading sur BTC\n- détail 1'), {
-    title: 'Tester le stop-loss sur BTC', desc: '- détail 1', tag: 'trading',
-  });
-  assert.equal(parseCapture('Prix en #1 ? non').tag, '1');
-  assert.equal(parseCapture('C# est bien').tag, null);
-});
-
-test('tags reuse existing categories regardless of case and accents', () => {
-  assert.equal(resolveCat('idees', ['Idées', 'Code']), 'Idées');
-  assert.equal(resolveCat('side-project', []), 'Side project');
-});
+import { renderInline, renderBlock } from '../src/parse.js';
+import { selectItems, splitCapture, migrateLegacy, orderBetween, statusSet } from '../src/model.js';
 
 test('inline markdown escapes HTML and renders formatting', () => {
   assert.equal(renderInline('<b>x</b>'), '&lt;b&gt;x&lt;/b&gt;');
@@ -24,32 +11,61 @@ test('inline markdown escapes HTML and renders formatting', () => {
   assert.doesNotMatch(renderInline('"onmouseover=alert(1)'), /"/);
 });
 
-test('block markdown renders checklists that can be toggled by line', () => {
-  const src = 'Intro\n- [ ] a\n- [x] b\n- puce';
-  const html = renderBlock(src);
-  assert.match(html, /<p>Intro<\/p><ul class="checks"><li class=""><input type="checkbox" data-line="1">/);
-  assert.match(html, /<\/ul><ul><li>puce<\/li><\/ul>$/);
-  assert.equal(toggleCheckLine(src, 1), 'Intro\n- [x] a\n- [x] b\n- puce');
-  assert.equal(toggleCheckLine(src, 2), 'Intro\n- [ ] a\n- [ ] b\n- puce');
+test('block markdown renders lines, bullets and checklists', () => {
+  assert.equal(
+    renderBlock('Intro\n- [ ] a\n- [x] b\n- puce\n\nfin'),
+    '<div>Intro</div><ul class="checks"><li data-checked="false">a</li><li data-checked="true">b</li></ul><ul><li>puce</li></ul><div><br></div><div>fin</div>',
+  );
 });
 
-const history = [
-  { title: 'Backtest de la stratégie scalping sur BTC', cat: 'Trading' },
-  { title: 'Ajouter un stop-loss dynamique au bot', cat: 'Trading' },
-  { title: 'Comparer les frais Hyperliquid et dYdX pour le bot', cat: 'Trading' },
-  { title: 'Landing page pour vendre des prompts', cat: 'Business' },
-  { title: 'Idée de SaaS : abonnement prompts pour freelances', cat: 'Business' },
-  { title: 'Acheter du pain', cat: null },
+test('capture: first line is the title, list markers stripped, rest is description', () => {
+  assert.deepEqual(splitCapture('\nTitre **fort**\n- [ ] a\n- [ ] b\n'), { title: 'Titre **fort**', desc: '- [ ] a\n- [ ] b' });
+  assert.deepEqual(splitCapture('- [ ] juste une case'), { title: 'juste une case', desc: '' });
+  assert.equal(splitCapture('  \n '), null);
+});
+
+const T = (id, o) => ({ id, title: id, desc: '', tab: 'a', status: 'todo', fav: false, pinned: 0, createdAt: 0, doneAt: null, ...o });
+const items = [
+  T('old', { createdAt: 1 }),
+  T('new', { createdAt: 5 }),
+  T('pinned', { createdAt: 0, pinned: 10 }),
+  T('doing', { createdAt: 3, status: 'doing', fav: true }),
+  T('done', { createdAt: 9, status: 'done', doneAt: 20 }),
+  T('other', { createdAt: 7, tab: 'b' }),
 ];
+const ids = (l) => l.map((i) => i.id).join(',');
 
-test('classifier routes text sharing vocabulary with a category', () => {
-  const m = train(history);
-  assert.equal(predict(m, 'nouveau backtest du bot sur ETH')?.cat, 'Trading');
-  assert.equal(predict(m, 'prix de l\'abonnement prompts')?.cat, 'Business');
+test('default view hides done tasks and puts pinned first', () => {
+  assert.equal(ids(selectItems(items, { view: 'a' })), 'pinned,new,doing,old');
+  assert.equal(ids(selectItems(items, { view: 'all' })), 'pinned,other,new,doing,old');
 });
 
-test('classifier abstains on unrelated text and with too little history', () => {
-  const m = train(history);
-  assert.equal(predict(m, 'appeler le plombier demain'), null);
-  assert.equal(predict(train([{ title: 'bot trading', cat: 'Trading' }]), 'bot trading'), null);
+test('filters combine: statuses are OR-ed, favourites narrow', () => {
+  assert.equal(ids(selectItems(items, { view: 'a', filters: ['done'] })), 'done');
+  assert.equal(ids(selectItems(items, { view: 'a', filters: ['doing', 'done'] })), 'doing,done');
+  assert.equal(ids(selectItems(items, { view: 'a', filters: ['fav'] })), 'doing');
+  assert.equal(ids(selectItems(items, { view: 'fav' })), 'doing');
+  assert.equal(ids(selectItems(items, { view: 'all', query: 'OTH' })), 'other');
+  assert.deepEqual([...statusSet(['fav'])], ['todo', 'doing']);
+});
+
+test('orderBetween places a tab between neighbours', () => {
+  assert.equal(orderBetween(1, 2), 1.5);
+  assert.equal(orderBetween(null, 2), 1);
+  assert.equal(orderBetween(3, null), 4);
+});
+
+test('legacy items migrate to tabs by name and to statuses', () => {
+  let n = 0;
+  const legacy = [
+    { id: 'x', title: 'a', desc: '', cat: 'Trading', auto: true, createdAt: 1, updatedAt: 1, doneAt: null },
+    { id: 'y', title: 'b', desc: 'd', cat: null, auto: false, createdAt: 2, updatedAt: 2, doneAt: 5 },
+    { id: 'z', title: 'c', desc: '', cat: 'trading', createdAt: 3, updatedAt: 3, doneAt: null },
+  ];
+  const existing = [{ id: 't0', name: 'Général', order: 1, color: 'gray', createdAt: 0 }];
+  const r = migrateLegacy(legacy, existing, 100, () => `t${++n}`);
+  assert.deepEqual(r.tabs.map((t) => [t.name, t.order]), [['Trading', 2]]);
+  assert.deepEqual(r.items.map((i) => [i.id, i.tab, i.status]), [['x', 't1', 'todo'], ['y', 't0', 'done'], ['z', 't1', 'todo']]);
+  assert.ok(r.items.every((i) => !('cat' in i) && !('auto' in i)));
+  assert.deepEqual(migrateLegacy(r.items, existing, 100, () => 'no'), { tabs: [], items: [] });
 });
