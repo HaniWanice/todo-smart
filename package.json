@@ -1,0 +1,9 @@
+{
+  "name": "todo-smart",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/",
+    "dev": "python -m http.server 5173"
+  }
+}

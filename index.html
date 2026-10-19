@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ToDo Smart</title>
+  <meta name="theme-color" content="#fbfaf8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#191918" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header class="top">
+      <h1>ToDo Smart</h1>
+      <div class="tools">
+        <span id="sync" class="sync"></span>
+        <button id="share" class="ghost">Partager</button>
+      </div>
+    </header>
+
+    <div class="capture">
+      <textarea id="cap" rows="1" placeholder="Note une idée, une tâche…" autocomplete="off" spellcheck="true"></textarea>
+      <span id="route" class="route"></span>
+    </div>
+    <p class="hint"><kbd>Entrée</kbd> ajoute · <kbd>Maj+Entrée</kbd> détaille · <kbd>#onglet</kbd> range · <kbd>Ctrl+F</kbd> cherche · <kbd>Alt+1…9</kbd> onglets</p>
+
+    <div class="bar">
+      <nav id="tabs" class="tabs"></nav>
+      <input id="search" class="search" type="search" placeholder="Rechercher" aria-label="Rechercher">
+    </div>
+
+    <ul id="list" class="list"></ul>
+    <p id="empty" class="empty" hidden></p>
+  </main>
+
+  <div id="menu" class="menu" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
