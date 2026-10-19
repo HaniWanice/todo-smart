@@ -56,7 +56,13 @@ const tabVars = (tab) => (tab ? `--tc:var(--c-${tab.color});--tc-bg:var(--c-${ta
 const isTabView = () => state.tabs.has(state.view);
 const filtersOf = (view = state.view) => state.filters[view] ?? [];
 
-function put(coll, doc) { backend.put(coll, { ...doc, updatedAt: Date.now() }); }
+// Writes land in local state first: Firestore echoes them back asynchronously,
+// and flows like "create a tab, then rename it" must not wait for that echo.
+function save(coll, doc) {
+  state[coll].set(doc.id, doc);
+  backend.put(coll, doc);
+}
+function put(coll, doc) { save(coll, { ...doc, updatedAt: Date.now() }); }
 function update(it, patch) { put('items', { ...it, ...patch }); }
 
 function ensureTab() {
@@ -64,7 +70,7 @@ function ensureTab() {
   if (first) return first.id;
   const t = Date.now();
   const tab = { id: uid(9), name: 'Général', order: 1, color: 'blue', createdAt: t, updatedAt: t };
-  backend.put('tabs', tab);
+  save('tabs', tab);
   return tab.id;
 }
 
@@ -81,7 +87,7 @@ function capture() {
   const t = Date.now();
   const item = { id: uid(9), title: p.title, desc: p.desc, tab, status: 'todo', fav: state.view === 'fav', pinned: 0, createdAt: t, updatedAt: t, doneAt: null };
   state.fresh = item.id;
-  backend.put('items', item);
+  save('items', item);
   els.cap.innerHTML = '';
   els.cap.focus();
   updateComposer();
@@ -335,7 +341,7 @@ function addTab() {
   const used = new Set(tabs.map((x) => x.color));
   const color = COLORS.find((c) => !used.has(c)) ?? COLORS[tabs.length % COLORS.length];
   const tab = { id: uid(9), name: 'Nouvel onglet', order: (tabs.at(-1)?.order ?? 0) + 1, color, createdAt: t, updatedAt: t };
-  backend.put('tabs', tab);
+  save('tabs', tab);
   setView(tab.id);
   startViewRename(true);
 }
@@ -346,7 +352,7 @@ function deleteTab(tab) {
   backend.del('tabs', tab.id);
   if (state.view === tab.id) setView('all');
   toast(`Onglet « ${tab.name} » supprimé${items.length ? ` avec ${items.length} tâche${items.length > 1 ? 's' : ''}` : ''}`, 'Annuler', () => {
-    backend.put('tabs', tab);
+    save('tabs', tab);
     items.forEach((i) => backend.put('items', i));
   });
 }
