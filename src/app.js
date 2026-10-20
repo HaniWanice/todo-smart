@@ -1,5 +1,5 @@
 import { renderInline, renderBlock, escapeHtml } from './parse.js';
-import { selectItems, splitCapture, migrateLegacy, orderBetween, sortTabs, COLORS } from './model.js';
+import { selectItems, splitCapture, migrateLegacy, orderBetween, sortTabs, buildBackup, parseBackup, COLORS } from './model.js';
 import { attachEditor, htmlToMd, format, editableRoot, toggleCheckFromClick, placeCaretAtEnd, selectAll } from './editor.js';
 import { localBackend, firestoreBackend } from './backends.js';
 import { firebaseConfig } from './config.js';
@@ -10,7 +10,7 @@ const els = {
   cap: $('#cap'), send: $('#send'), dest: $('#dest'), list: $('#list'), empty: $('#empty'),
   tabs: $('#tabs'), viewIcon: $('#viewIcon'), viewTitle: $('#viewTitle'), viewMeta: $('#viewMeta'),
   viewMenu: $('#viewMenu'), filters: $('#filters'), search: $('#search'), sync: $('#sync'),
-  share: $('#share'), theme: $('#theme'), toast: $('#toast'), menu: $('#menu'), fmtbar: $('#fmtbar'),
+  share: $('#share'), backup: $('#backup'), importFile: $('#importFile'), theme: $('#theme'), toast: $('#toast'), menu: $('#menu'), fmtbar: $('#fmtbar'),
 };
 
 // view: 'all' | 'fav' | <tab id>
@@ -64,6 +64,11 @@ function save(coll, doc) {
 }
 function put(coll, doc) { save(coll, { ...doc, updatedAt: Date.now() }); }
 function update(it, patch) { put('items', { ...it, ...patch }); }
+// Firestore rejects `undefined`, so "no colour" means the field is absent.
+function setItemColor(it, color) {
+  const { color: _old, ...rest } = it;
+  put('items', color ? { ...rest, color } : rest);
+}
 
 function ensureTab() {
   const first = tabList()[0];
@@ -208,6 +213,7 @@ function rowHtml(it) {
     <div class="task-actions">
       <button type="button" class="act star${it.fav ? ' on' : ''}" data-act="fav" aria-pressed="${!!it.fav}" aria-label="Favori" title="Favori">${icon('star')}</button>
       <button type="button" class="act pin${it.pinned ? ' on' : ''}" data-act="pin" aria-pressed="${!!it.pinned}" aria-label="Épingler en haut" title="Épingler en haut">${icon('pin')}</button>
+      <button type="button" class="act palette${it.color ? ' has' : ''}" data-act="color" aria-label="Couleur" title="Couleur">${icon('palette')}</button>
       <button type="button" class="act${hasDesc ? ' has' : ''}" data-act="toggle-desc" aria-label="Description" title="Description">${icon('text')}</button>
       <button type="button" class="act" data-act="move" aria-label="Déplacer vers un onglet" title="Déplacer vers…">${icon('move')}</button>
       <button type="button" class="act danger" data-act="delete" aria-label="Supprimer" title="Supprimer">${icon('trash')}</button>
@@ -227,10 +233,11 @@ function renderList() {
       el.dataset.id = it.id;
       nodes.set(it.id, el);
     }
-    const sig = JSON.stringify([it.title, it.desc, it.tab, it.status, it.fav, it.pinned, it.doneAt, state.openDesc === it.id, isTabView(), state.tabs.get(it.tab)?.name, state.tabs.get(it.tab)?.color]);
+    const sig = JSON.stringify([it.title, it.desc, it.tab, it.status, it.fav, it.pinned, it.doneAt, it.color, state.openDesc === it.id, isTabView(), state.tabs.get(it.tab)?.name, state.tabs.get(it.tab)?.color]);
     const editing = a && el.contains(a) && a.isContentEditable;
     if (el._sig !== sig && !editing) {
-      el.className = `task${it.status === 'done' ? ' is-done' : ''}${it.status === 'doing' ? ' is-doing' : ''}`;
+      el.className = `task${it.status === 'done' ? ' is-done' : ''}${it.status === 'doing' ? ' is-doing' : ''}${it.color ? ' has-color' : ''}`;
+      el.style.cssText = it.color ? `--ic:var(--c-${it.color});--ic-bg:var(--c-${it.color}-bg)` : '';
       el.innerHTML = rowHtml(it);
       el._sig = sig;
     }
@@ -391,11 +398,23 @@ function openMoveMenu(anchor, it) {
   });
 }
 
+const swatchesHtml = (current) => `<div class="swatches">${COLORS.map((c) => `<button type="button" class="swatch" data-m="color:${c}" aria-label="${c}" aria-pressed="${current === c}" style="--tc:var(--c-${c});--tc-bg:var(--c-${c}-bg)"></button>`).join('')}</div>`;
+
+function openItemColorMenu(anchor, it) {
+  const html = `<div class="menu-label">Couleur de la tâche</div>${swatchesHtml(it.color)}
+    <button type="button" class="menu-item" data-m="none">Aucune couleur</button>`;
+  openMenu(anchor, html, (m) => {
+    closeMenu();
+    const cur = state.items.get(it.id);
+    if (cur) setItemColor(cur, m.startsWith('color:') ? m.slice(6) : null);
+  });
+}
+
 function openTabMenu(anchor, tab) {
   const html = `
     <button type="button" class="menu-item" data-m="rename">${icon('pencil')}Renommer</button>
     <div class="menu-label">Couleur</div>
-    <div class="swatches">${COLORS.map((c) => `<button type="button" class="swatch" data-m="color:${c}" aria-label="${c}" aria-pressed="${tab.color === c}" style="--tc:var(--c-${c});--tc-bg:var(--c-${c}-bg)"></button>`).join('')}</div>
+    ${swatchesHtml(tab.color)}
     <div class="menu-sep"></div>
     <button type="button" class="menu-item danger" data-m="delete">${icon('trash')}Supprimer l'onglet</button>`;
   openMenu(anchor, html, (m) => {
@@ -505,6 +524,7 @@ els.list.addEventListener('click', (e) => {
     case 'fav': update(it, { fav: !it.fav }); break;
     case 'pin': update(it, { pinned: it.pinned ? 0 : Date.now() }); break;
     case 'move': e.stopPropagation(); openMoveMenu(e.target.closest('[data-act]'), it); break;
+    case 'color': e.stopPropagation(); openItemColorMenu(e.target.closest('[data-act]'), it); break;
     case 'edit-title': if (!getSelection().toString()) startTitleEdit(it, e.target.closest('.task-title')); break;
     case 'open-desc': if (!rich.isContentEditable) openDesc(it); break;
     case 'toggle-desc':
@@ -637,6 +657,51 @@ els.share.addEventListener('click', async () => {
   } catch {
     toast('Copie impossible : copie l\'adresse de la page');
   }
+});
+
+/* ---------- Backup: export and import ---------- */
+
+function exportData() {
+  const items = allItems();
+  const blob = new Blob([JSON.stringify(buildBackup(items, tabList(), Date.now()), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `todo-smart-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`${items.length} tâche${items.length > 1 ? 's' : ''} exportée${items.length > 1 ? 's' : ''}`);
+}
+
+// Merge, never delete: a backup entry replaces the current one only if it is newer.
+async function importData(file) {
+  let r;
+  try { r = parseBackup(await file.text()); } catch (e) { toast(e.message); return; }
+  const newer = (cur, next) => !cur || (next.updatedAt ?? 0) > (cur.updatedAt ?? 0);
+  let n = 0;
+  for (const t of r.tabs) if (newer(state.tabs.get(t.id), t)) save('tabs', t);
+  for (const i of r.items) {
+    if (!newer(state.items.get(i.id), i)) continue;
+    save('items', state.tabs.has(i.tab) ? i : { ...i, tab: ensureTab() });
+    n++;
+  }
+  render();
+  toast(`${n} tâche${n > 1 ? 's' : ''} importée${n > 1 ? 's' : ''}${r.skipped ? `, ${r.skipped} ignorée${r.skipped > 1 ? 's' : ''}` : ''}`);
+}
+
+els.backup.innerHTML = icon('download');
+els.backup.addEventListener('click', (e) => {
+  e.stopPropagation();
+  openMenu(els.backup, `
+    <button type="button" class="menu-item" data-m="export">${icon('download')}Exporter mes données</button>
+    <button type="button" class="menu-item" data-m="import">${icon('upload')}Importer un fichier</button>`, (m) => {
+    closeMenu();
+    if (m === 'export') exportData(); else els.importFile.click();
+  });
+});
+els.importFile.addEventListener('change', () => {
+  const f = els.importFile.files[0];
+  els.importFile.value = '';
+  if (f) importData(f);
 });
 
 function applyTheme(theme) {

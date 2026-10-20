@@ -25,6 +25,7 @@
       </label>
       <span id="sync" class="sync" role="status"></span>
       <button id="share" class="icon-btn" type="button" aria-label="Copier le lien de partage" title="Copier le lien de partage"></button>
+      <button id="backup" class="icon-btn" type="button" aria-label="Sauvegarde" title="Exporter ou importer mes données"></button>
       <button id="theme" class="icon-btn" type="button"></button>
     </div>
   </header>
@@ -73,7 +74,8 @@
     <button type="button" class="fmt-btn wide" data-fmt="bullets"><span>Liste</span></button>
     <button type="button" class="fmt-btn wide" data-fmt="checks"><span>Checklist</span></button>
   </div>
-  <div id="menu" class="menu" role="menu" hidden></div>
+  <input id="importFile" type="file" accept=".json,application/json" hidden>
+  <div id="menu"class="menu" role="menu" hidden></div>
   <div id="toast" class="toast" role="status" hidden></div>
 
   <script type="module" src="src/app.js"></script>

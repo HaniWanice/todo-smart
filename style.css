@@ -630,3 +630,13 @@ main { padding: 8px var(--pad-x) calc(var(--tabbar-h) + 72px); }
 .state-btn { width: 28px; height: 28px; }
 .state-btn .i { width: 20px; height: 20px; }
 .chip { height: 32px; font-size: 13.5px; }
+
+/* ---------- Done at the bottom, bolder titles, per-task colour ---------- */
+
+.task-title { font-weight: 500; }
+.task.is-done .task-body { opacity: .55; }
+.task.has-color { background: var(--ic-bg); }
+.task.has-color:hover, .task.has-color:focus-within { background: color-mix(in srgb, var(--ic) 13%, var(--bg)); }
+.task.is-done.has-color { background: transparent; }
+.task.is-done.has-color:hover, .task.is-done.has-color:focus-within { background: var(--hover); }
+.act.palette.has { color: var(--ic); }

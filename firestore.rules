@@ -9,8 +9,9 @@ service cloud.firestore {
       allow read, delete: if inSpace(space);
       // Legacy v1 items (cat/auto) are still readable and deletable, rewritten on migration.
       allow create, update: if inSpace(space)
-        && request.resource.data.keys().hasOnly(['id', 'title', 'desc', 'tab', 'status', 'fav', 'pinned', 'createdAt', 'updatedAt', 'doneAt'])
+        && request.resource.data.keys().hasOnly(['id', 'title', 'desc', 'tab', 'status', 'fav', 'pinned', 'createdAt', 'updatedAt', 'doneAt', 'color'])
         && request.resource.data.id == item
+        && (!('color' in request.resource.data) || request.resource.data.color is string)
         && request.resource.data.title is string && request.resource.data.title.size() <= 2000
         && request.resource.data.desc is string && request.resource.data.desc.size() <= 50000
         && request.resource.data.tab is string

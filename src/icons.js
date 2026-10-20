@@ -24,6 +24,9 @@ const P = {
   circle: '<circle cx="12" cy="12" r="8.25"/>',
   done: '<circle cx="12" cy="12" r="8.25"/><path d="m8.5 12.3 2.4 2.4 4.6-5"/>',
   x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+  palette: '<circle cx="12" cy="12" r="8.25"/><circle cx="8.6" cy="11" r=".9" class="dot"/><circle cx="12" cy="7.9" r=".9" class="dot"/><circle cx="15.4" cy="11" r=".9" class="dot"/>',
+  download: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>',
+  upload: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>',
   pencil: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
 };
 

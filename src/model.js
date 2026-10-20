@@ -5,10 +5,10 @@ import { fold } from './parse.js';
 export const STATUSES = ['todo', 'doing', 'done'];
 export const COLORS = ['blue', 'green', 'orange', 'purple', 'pink', 'yellow', 'brown', 'red', 'gray'];
 
-// No status filter selected means "everything not done".
+// No status filter selected means every status: done tasks stay listed, at the bottom.
 export function statusSet(filters = []) {
   const s = filters.filter((f) => STATUSES.includes(f));
-  return new Set(s.length ? s : ['todo', 'doing']);
+  return new Set(s.length ? s : STATUSES);
 }
 
 // view: 'all' | 'fav' | <tab id>
@@ -24,15 +24,15 @@ export function selectItems(items, { view = 'all', filters = [], query = '' } = 
     .sort(compareItems);
 }
 
-// Pinned first (latest pin on top), done last, otherwise newest first.
+// Done always last (latest done first), then pinned (latest pin on top), otherwise newest first.
 export function compareItems(a, b) {
-  const pa = a.pinned || 0;
-  const pb = b.pinned || 0;
-  if (pa || pb) return pb - pa;
   const da = a.status === 'done';
   const db = b.status === 'done';
   if (da !== db) return da ? 1 : -1;
   if (da) return (b.doneAt ?? 0) - (a.doneAt ?? 0);
+  const pa = a.pinned || 0;
+  const pb = b.pinned || 0;
+  if (pa || pb) return pb - pa;
   return b.createdAt - a.createdAt;
 }
 
@@ -55,6 +55,38 @@ export function splitCapture(md) {
   const title = lines[i].replace(/^\s*(?:[-*•]\s+)?(?:\[[ xX]\]\s*)?/, '').trim();
   const desc = lines.slice(i + 1).join('\n').replace(/^\n+/, '').replace(/\s+$/, '');
   return title ? { title, desc } : null;
+}
+
+/* ---------- Backup file ---------- */
+
+export const BACKUP_FORMAT = 'todo-smart-backup';
+// Same fields as firestore.rules allows: anything else would be rejected on write.
+const ITEM_KEYS = ['id', 'title', 'desc', 'tab', 'status', 'fav', 'pinned', 'createdAt', 'updatedAt', 'doneAt', 'color'];
+const TAB_KEYS = ['id', 'name', 'order', 'color', 'createdAt', 'updatedAt'];
+
+export function buildBackup(items, tabs, now) {
+  return { format: BACKUP_FORMAT, version: 1, exportedAt: now, tabs: sortTabs(tabs), items: [...items].sort(compareItems) };
+}
+
+const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
+
+// Returns the tabs and items worth writing, and how many entries were skipped as invalid.
+export function parseBackup(text) {
+  let d;
+  try { d = JSON.parse(text); } catch { throw new Error('Ce fichier n\'est pas un JSON valide'); }
+  if (d?.format !== BACKUP_FORMAT || !Array.isArray(d.items) || !Array.isArray(d.tabs)) throw new Error('Ce fichier n\'est pas une sauvegarde ToDo Smart');
+  const okTab = (t) => t && typeof t.id === 'string' && typeof t.name === 'string' && t.name.length <= 60 && typeof t.order === 'number';
+  const okItem = (i) => i && typeof i.id === 'string' && typeof i.title === 'string' && i.title.length <= 2000
+    && (i.desc == null || (typeof i.desc === 'string' && i.desc.length <= 50000))
+    && typeof i.tab === 'string' && STATUSES.includes(i.status) && Number.isInteger(i.createdAt);
+  const tabs = d.tabs.filter(okTab).map((t) => pick(t, TAB_KEYS));
+  const items = d.items.filter(okItem).map((i) => {
+    const o = pick(i, ITEM_KEYS);
+    o.desc = o.desc ?? '';
+    if (!COLORS.includes(o.color)) delete o.color;
+    return o;
+  });
+  return { tabs, items, skipped: d.tabs.length - tabs.length + d.items.length - items.length };
 }
 
 const LEGACY_DEFAULT = 'Général';
