@@ -199,7 +199,13 @@ async function main() {
     if (sol && prev.sig !== sig && budget > 0) {
       budget--;
       const s = await summarize(digest(p, facts));
-      if (s) { summary = s; cache.projects[id] = { sig, summary }; log(`résumé : ${s.name} (${s.progress} %)`); }
+      if (s) {
+        summary = s;
+        cache.projects[id] = { sig, summary };
+        // Saved at once: a run killed midway keeps the summaries it already paid for.
+        fs.writeFileSync(CACHE, JSON.stringify(cache));
+        log(`résumé : ${s.name} (${s.progress} %)`);
+      }
     }
     const firstPrompt = p.sessions[0].prompts[0] ?? '';
     const doc = {
