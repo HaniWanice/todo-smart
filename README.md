@@ -18,6 +18,15 @@ En ligne : https://haniwanice.github.io/todo-smart/
 
 ## Développer
 
+## Projets Claude Code
+
+L'onglet **Projets** liste les projets lancés avec Claude Code sur ce PC et sur le Mac : nom, description, avancée estimée, fait / reste à faire, prochaine étape, dates. Filtres Windows / Mac, tri par activité, création, avancée ou nom, favoris, épingle, masquer.
+
+- `scripts/scan-projects.mjs` lit les sessions (`~/.claude/projects` et `\\macbook-pro-de-hani.local\hani\.claude\projects`), regroupe par dossier, lit git et README, puis demande un résumé à Sol (pont local, port 47321) **seulement pour les projets qui ont bougé**. Il écrit dans `spaces/<id>/projects`.
+- Première fois : `node scripts/scan-projects.mjs --space <id>` (l'id est après `#` dans le lien). Id et cache dans `%LOCALAPPDATA%\todo-smart-scan\`.
+- Automatique : `powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1` (toutes les 30 min et à l'ouverture de session, journal `scan.log`). Mac éteint : ses projets gardent leur dernier état.
+- Options : `--dry` (affiche sans écrire), `--no-ai` (dates seulement).
+
 ```sh
 npm run dev    # http://127.0.0.1:5173  (ajouter ?local pour ignorer Firestore)
 npm test       # logique pure (rendu, filtres, tri, migration)
