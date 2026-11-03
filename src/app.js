@@ -4,20 +4,23 @@ import { attachEditor, htmlToMd, format, editableRoot, toggleCheckFromClick, pla
 import { localBackend, firestoreBackend } from './backends.js';
 import { firebaseConfig } from './config.js';
 import { icon } from './icons.js';
+import { selectProjects, projectStats, projectHtml, projectControlsHtml, relTime, DEFAULT_PVIEW } from './projects.js';
 
 const $ = (s) => document.querySelector(s);
 const els = {
   cap: $('#cap'), send: $('#send'), dest: $('#dest'), list: $('#list'), empty: $('#empty'),
   tabs: $('#tabs'), viewIcon: $('#viewIcon'), viewTitle: $('#viewTitle'), viewMeta: $('#viewMeta'),
   viewMenu: $('#viewMenu'), filters: $('#filters'), search: $('#search'), sync: $('#sync'),
-  share: $('#share'), backup: $('#backup'), importFile: $('#importFile'), theme: $('#theme'), toast: $('#toast'), menu: $('#menu'), fmtbar: $('#fmtbar'),
+  projects: $('#projects'), share: $('#share'), backup: $('#backup'), importFile: $('#importFile'), theme: $('#theme'), toast: $('#toast'), menu: $('#menu'), fmtbar: $('#fmtbar'),
 };
 
-// view: 'all' | 'fav' | <tab id>
+// view: 'all' | 'fav' | 'projects' | <tab id>
 const state = {
-  items: new Map(), tabs: new Map(), view: 'all', filters: {}, query: '',
-  openDesc: null, fresh: null, cache: { items: true, tabs: true },
+  items: new Map(), tabs: new Map(), projects: new Map(), view: 'all', filters: {}, query: '',
+  openDesc: null, fresh: null, cache: { items: true, tabs: true, projects: true },
+  pview: { ...DEFAULT_PVIEW }, openProject: null,
 };
+const isProjects = () => state.view === 'projects';
 const nodes = new Map();
 let backend;
 let undoFn = null;
@@ -139,6 +142,7 @@ const STATE_FILTERS = [
 ];
 
 function render() {
+  document.body.classList.toggle('mode-projects', isProjects());
   renderTabs();
   renderHead();
   renderList();
@@ -153,13 +157,32 @@ function renderTabs() {
   els.tabs.innerHTML = `
     <button class="tab" data-view="all"${cur('all')} title="Alt+1">${icon('all')}<span>Tout</span><span class="n">${count(() => true)}</span></button>
     <button class="tab" data-view="fav"${cur('fav')} title="Alt+2" style="--tc:var(--star);--tc-bg:var(--c-yellow-bg);--tc-strong:var(--c-yellow)">${icon('star')}<span>Favoris</span><span class="n">${count((i) => i.fav)}</span></button>
+    <button class="tab" data-view="projects"${cur('projects')} title="Projets Claude Code" style="--tc:var(--c-purple);--tc-bg:var(--c-purple-bg);--tc-strong:var(--c-purple)">${icon('layers')}<span>Projets</span><span class="n">${projectStats([...state.projects.values()]).count || ''}</span></button>
     <span class="tab-sep" aria-hidden="true"></span>
     ${tabList().map((t, i) => `<button class="tab user" data-view="${escapeHtml(t.id)}"${cur(t.id)} draggable="true" style="${tabVars(t)}" title="${i < 7 ? `Alt+${i + 3} · ` : ''}double-clic pour renommer"><span class="dot"></span><span class="tab-name">${escapeHtml(t.name)}</span><span class="n">${count((it) => it.tab === t.id)}</span></button>`).join('')}
     <button class="tab-add" data-act="add-tab" type="button" title="Nouvel onglet">${icon('plus')}<span class="label">Nouvel onglet</span></button>`;
   els.tabs.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
+function renderProjectsHead() {
+  els.viewIcon.innerHTML = icon('layers');
+  els.viewIcon.style.cssText = '--tc:var(--c-purple);--tc-bg:var(--c-purple-bg)';
+  els.viewTitle.textContent = 'Projets';
+  els.viewTitle.classList.remove('renamable');
+  els.viewTitle.title = '';
+  els.viewMenu.hidden = true;
+  const st = projectStats([...state.projects.values()]);
+  els.viewMeta.textContent = st.count ? [
+    `${st.count} projet${st.count > 1 ? 's' : ''}`,
+    `${st.week} actif${st.week > 1 ? 's' : ''} cette semaine`,
+    st.avg !== null ? `avancée moyenne ${st.avg} %` : '',
+    st.scannedAt ? `analysé ${relTime(st.scannedAt)}` : '',
+  ].filter(Boolean).join(' · ') : 'Tes projets Claude Code, Windows et Mac';
+  els.filters.innerHTML = projectControlsHtml(state.pview);
+}
+
 function renderHead() {
+  if (isProjects()) { renderProjectsHead(); return; }
   const tab = state.tabs.get(state.view);
   const title = state.view === 'all' ? 'Toutes les tâches' : state.view === 'fav' ? 'Favoris' : tab?.name ?? '';
   els.viewIcon.innerHTML = state.view === 'fav' ? icon('star') : state.view === 'all' ? icon('all') : '<span class="square"></span>';
@@ -220,7 +243,28 @@ function rowHtml(it) {
     </div>`;
 }
 
+function renderProjects() {
+  const list = selectProjects([...state.projects.values()], { ...state.pview, query: state.query });
+  const now = Date.now();
+  // Keep keyboard focus on the same row across re-renders.
+  const focusId = document.activeElement?.closest?.('.proj')?.dataset.id;
+  const focusAct = document.activeElement?.dataset?.pact;
+  els.projects.innerHTML = list.map((p) => projectHtml(p, { open: state.openProject === p.id, now })).join('');
+  if (focusId) els.projects.querySelector(`.proj[data-id="${CSS.escape(focusId)}"] [data-pact="${focusAct}"]`)?.focus({ preventScroll: true });
+  els.empty.hidden = list.length > 0;
+  if (list.length) return;
+  if (!state.projects.size) {
+    const cmd = `node scripts/scan-projects.mjs --space ${location.hash.slice(1)}`;
+    els.empty.innerHTML = `<strong>Aucun projet pour l'instant</strong>Le scanner lit tes sessions Claude Code sur ce PC et le Mac, puis remplit cet onglet.<br>Lance une fois depuis le dossier ToDo Smart :
+      <code class="cmd">${escapeHtml(cmd)}</code><button type="button" class="chip" data-pact="copy-cmd" data-cmd="${escapeHtml(cmd)}">${icon('copy')}Copier la commande</button>`;
+  } else if (state.query.trim()) els.empty.innerHTML = `<strong>Aucun résultat</strong>Aucun projet ne contient « ${escapeHtml(state.query.trim())} ».`;
+  else els.empty.innerHTML = '<strong>Rien ne correspond à ces filtres</strong><button type="button" class="chip" data-pf="reset">Effacer les filtres</button>';
+}
+
 function renderList() {
+  els.list.hidden = isProjects();
+  els.projects.hidden = !isProjects();
+  if (isProjects()) { renderProjects(); return; }
   const list = selectItems(allItems(), { view: state.view, filters: filtersOf(), query: state.query });
   const a = document.activeElement;
   const keep = new Set();
@@ -482,10 +526,60 @@ document.addEventListener('selectionchange', updateFmtbar);
 els.filters.addEventListener('click', (e) => {
   const b = e.target.closest('[data-filter]');
   if (b) toggleFilter(b.dataset.filter);
+  const p = e.target.closest('[data-pf]');
+  if (p) setProjectFilter(p.dataset.pf);
 });
 els.empty.addEventListener('click', (e) => {
   const b = e.target.closest('[data-filter]');
   if (b) toggleFilter(b.dataset.filter);
+  const p = e.target.closest('[data-pf]');
+  if (p) setProjectFilter(p.dataset.pf);
+  const c = e.target.closest('[data-pact="copy-cmd"]');
+  if (c) copyText(c.dataset.cmd, 'Commande copiée');
+});
+
+/* ---------- Projects ---------- */
+
+function setProjectFilter(key) {
+  const pv = state.pview;
+  if (key === 'reset') state.pview = { ...DEFAULT_PVIEW, sort: pv.sort };
+  else if (key === 'fav' || key === 'hidden') pv[key] = !pv[key];
+  else { const [k, v] = key.split(':'); pv[k] = v; }
+  safeSet('ts:pview', JSON.stringify(state.pview));
+  render();
+}
+
+async function copyText(text, msg) {
+  try { await navigator.clipboard.writeText(text); toast(msg); } catch { toast('Copie impossible'); }
+}
+
+function updateProject(p, patch) {
+  put('projects', { ...p, ...patch });
+  render();
+}
+
+els.projects.addEventListener('click', (e) => {
+  const row = e.target.closest('.proj');
+  const p = row && state.projects.get(row.dataset.id);
+  if (!p) return;
+  const act = e.target.closest('[data-pact]')?.dataset.pact;
+  switch (act) {
+    case 'fav': updateProject(p, { fav: !p.fav }); break;
+    case 'pin': updateProject(p, { pinned: p.pinned ? 0 : Date.now() }); break;
+    case 'hide':
+      updateProject(p, { hidden: !p.hidden });
+      if (!p.hidden) toast(`« ${p.name} » masqué`, 'Annuler', () => updateProject(state.projects.get(p.id) ?? p, { hidden: false }));
+      break;
+    case 'copy': copyText(p.path, 'Chemin copié'); break;
+    case 'toggle':
+      if (getSelection().toString()) return;
+      state.openProject = state.openProject === p.id ? null : p.id;
+      renderProjects();
+      break;
+  }
+});
+els.projects.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.proj-main')) { e.preventDefault(); e.target.click(); }
 });
 function toggleFilter(key) {
   const cur = new Set(filtersOf());
@@ -645,7 +739,7 @@ addEventListener('keydown', (e) => {
     return;
   }
   // Typing anywhere on the page goes straight into the composer.
-  if (!typing && e.key.length === 1 && !mod && !e.altKey) placeCaretAtEnd(els.cap);
+  if (!typing && e.key.length === 1 && !mod && !e.altKey) { if (isProjects()) els.search.focus(); else placeCaretAtEnd(els.cap); }
 });
 
 els.share.innerHTML = icon('link');
@@ -758,6 +852,7 @@ async function init() {
   const space = getSpace();
   state.view = safeGet('ts:view') ?? 'all';
   try { state.filters = JSON.parse(safeGet('ts:filters') ?? '{}') ?? {}; } catch {}
+  try { state.pview = { ...DEFAULT_PVIEW, ...JSON.parse(safeGet('ts:pview') ?? '{}') }; } catch {}
   // ?local forces the in-browser backend (tests, offline experiments).
   if (firebaseConfig && !new URLSearchParams(location.search).has('local')) {
     try { backend = await firestoreBackend(space, firebaseConfig); } catch (e) {
@@ -772,10 +867,10 @@ async function init() {
     state[coll] = new Map(docs.map((d) => [d.id, d]));
     state.cache[coll] = fromCache;
     migrateIfReady();
-    if (!['all', 'fav'].includes(state.view) && !state.tabs.has(state.view) && !state.cache.tabs) state.view = 'all';
+    if (!['all', 'fav', 'projects'].includes(state.view) && !state.tabs.has(state.view) && !state.cache.tabs) state.view = 'all';
     render();
   });
-  placeCaretAtEnd(els.cap);
+  if (!isProjects()) placeCaretAtEnd(els.cap);
 }
 
 init();

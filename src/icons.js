@@ -27,6 +27,13 @@ const P = {
   palette: '<circle cx="12" cy="12" r="8.25"/><circle cx="8.6" cy="11" r=".9" class="dot"/><circle cx="12" cy="7.9" r=".9" class="dot"/><circle cx="15.4" cy="11" r=".9" class="dot"/>',
   download: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>',
   upload: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>',
+  windows: '<path d="M4 6.2 10.5 5.3v6.2H4zM12 5.1l8-1.1v7.5h-8zM4 13h6.5v6.2L4 18.3zM12 13h8v7l-8-1.1z"/>',
+  laptop: '<rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M3 18.5h18"/>',
+  copy: '<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>',
+  folder: '<path d="M4 7.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9.5a2 2 0 0 0-2-2h-6.2L9.6 5H6a2 2 0 0 0-2 2.5"/>',
+  eyeOff: '<path d="M10.6 5.6A9.6 9.6 0 0 1 12 5.5c5 0 8.5 4.6 8.5 6.5 0 .9-.8 2.4-2.2 3.8M6.3 7.4C4.5 8.7 3.5 10.6 3.5 12c0 1.9 3.5 6.5 8.5 6.5 1.6 0 3-.5 4.2-1.1M9.9 9.9a3 3 0 0 0 4.2 4.2M4 4l16 16"/>',
+  sort: '<path d="M7 5v14M4 16l3 3 3-3M14 7h6M14 12h4M14 17h2"/>',
+  layers: '<path d="m12 4 8.5 4.5L12 13 3.5 8.5z"/><path d="m3.5 12.5 8.5 4.5 8.5-4.5M3.5 16.5 12 21l8.5-4.5"/>',
   pencil: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
 };
 

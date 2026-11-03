@@ -1,9 +1,9 @@
-// Storage backends share one interface over two collections, 'items' and 'tabs':
+// Storage backends share one interface over 'items', 'tabs' and 'projects' (written by scripts/scan-projects.mjs):
 //   start(onChange)  — onChange(coll, docsArray, { fromCache }) now and on every change
 //   put(coll, doc) / del(coll, id)
 //   status           — 'local' | 'synced' | 'offline', with onStatus(cb)
 
-export const COLLECTIONS = ['items', 'tabs'];
+export const COLLECTIONS = ['items', 'tabs', 'projects'];
 
 export function localBackend(space) {
   const key = (coll) => (coll === 'items' ? `todosmart:${space}` : `todosmart:${space}:${coll}`);
