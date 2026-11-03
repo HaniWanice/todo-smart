@@ -138,14 +138,28 @@ async function solUp() {
   return false;
 }
 
+// The bridge drives a Copilot web page that sometimes wedges (503 "navigation interrupted").
+// Killing whatever listens on the port and starting it again fixes it; parallel callers share one restart.
+let restarting = null, restarts = 0;
+function restartSol() {
+  return (restarting ??= (async () => {
+    restarts++;
+    log('pont Sol bloqué : redémarrage');
+    await run('powershell', ['-NoProfile', '-Command', 'Get-NetTCPConnection -LocalPort 47321 -State Listen -EA 0 | % { taskkill /PID $_.OwningProcess /T /F }']);
+    await solUp();
+  })().finally(() => { restarting = null; }));
+}
+
 async function summarize(text) {
-  for (let k = 0; k < 2; k++) {
+  for (let k = 0; k < 3; k++) {
+    if (k === 2) { if (restarts >= 2) break; await restartSol(); }
+    if (restarting) await restarting;
     try {
       const r = await fetch(SOL, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-sol-key': solKey },
         body: JSON.stringify({ model: 'gpt-5.6-sol', messages: [{ role: 'user', content: PROMPT + text }] }),
-        signal: AbortSignal.timeout(180000),
+        signal: AbortSignal.timeout(120000),
       });
       const j = await r.json();
       const s = parseSummary(j.choices?.[0]?.message?.content ?? '');
